@@ -1,0 +1,71 @@
+{
+  "name": "ambulance-dispatch-server",
+  "version": "1.0.0",
+  "description": "Emergency Ambulance Dispatch System — RESTful API (Express + TypeScript + Prisma + PostgreSQL + Stripe)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "prisma generate && tsup",
+    "vercel-build": "prisma generate && tsup",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src prisma",
+    "lint:fix": "biome check --write src prisma",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "keywords": [
+    "ambulance",
+    "dispatch",
+    "emergency",
+    "express",
+    "prisma",
+    "stripe"
+  ],
+  "author": "Iftikar Rahaman",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.4",
+    "google-auth-library": "^11.3.4",
+    "helmet": "^8.3.0",
+    "http-status-codes": "^2.3.0",
+    "ioredis": "^5.11.1",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.12.1",
+    "multer": "^2.5.0",
+    "pg": "^8.23.1",
+    "stripe": "^23.1.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "prisma": "^7.10.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
