@@ -9,6 +9,7 @@ import { cache } from "./lib/redis";
 import { globalErrorHandler } from "./middlewares/globalErrorHandler";
 import { notFound } from "./middlewares/notFound";
 import { globalLimiter } from "./middlewares/rateLimiter";
+import { PaymentController } from "./modules/payment/payment.controller";
 import router from "./routes";
 
 const app: Application = express();
@@ -30,6 +31,13 @@ app.use(
   }),
 );
 app.use(morgan(config.isProduction ? "combined" : "dev"));
+
+// Stripe webhook MUST receive the raw body for signature verification → mount before express.json().
+app.post(
+  "/api/v1/payments/webhook",
+  express.raw({ type: "application/json" }),
+  PaymentController.webhook,
+);
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
