@@ -1,0 +1,376 @@
+// ============================================================
+//  Emergency Ambulance Dispatch System — Prisma Schema
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------
+//  Enums
+// ------------------------------------------------------------
+
+enum Role {
+  PATIENT
+  DRIVER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  GOOGLE
+}
+
+enum AmbulanceType {
+  BASIC // Basic Life Support (BLS)
+  ADVANCED // Advanced Life Support (ALS)
+  ICU // Mobile ICU
+  NEONATAL // Neonatal / infant transport
+}
+
+enum AmbulanceStatus {
+  AVAILABLE
+  DISPATCHED // Assigned to an active emergency
+  MAINTENANCE
+  OFFLINE
+}
+
+enum EmergencyType {
+  CARDIAC
+  STROKE
+  RESPIRATORY
+  ACCIDENT
+  TRAUMA
+  MATERNITY
+  BURN
+  POISONING
+  OTHER
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum EmergencyStatus {
+  PENDING // Waiting for a dispatcher / ambulance
+  DISPATCHED // Ambulance + driver assigned
+  EN_ROUTE // Driver is heading to pickup point
+  AT_PICKUP // Driver reached the pickup point
+  PATIENT_ONBOARD // Patient picked up, heading to hospital
+  AT_HOSPITAL // Reached hospital
+  COMPLETED // Trip closed, fare calculated
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum NotificationType {
+  EMERGENCY
+  DISPATCH
+  TRIP_UPDATE
+  PAYMENT
+  SYSTEM
+}
+
+// ------------------------------------------------------------
+//  Users & Auth
+// ------------------------------------------------------------
+
+model User {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  password     String? // null for social-only accounts
+  phone        String?
+  avatar       String?
+  role         Role         @default(PATIENT)
+  status       UserStatus   @default(ACTIVE)
+  authProvider AuthProvider @default(CREDENTIALS)
+  googleId     String?      @unique
+  lastLoginAt  DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete
+
+  driverProfile       DriverProfile?
+  refreshTokens       RefreshToken[]
+  emergencyRequests   EmergencyRequest[]   @relation("PatientRequests")
+  assignedEmergencies EmergencyRequest[]   @relation("DriverAssignments")
+  dispatchedRequests  EmergencyRequest[]   @relation("DispatcherActions")
+  statusLogs          EmergencyStatusLog[]
+  payments            Payment[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
+  @@index([role, status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique // SHA-256 of the refresh token (raw token never stored)
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ------------------------------------------------------------
+//  Drivers & Ambulances
+// ------------------------------------------------------------
+
+model DriverProfile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  licenseNumber   String    @unique
+  licenseExpiry   DateTime
+  experienceYears Int       @default(0)
+  isVerified      Boolean   @default(false)
+  isOnDuty        Boolean   @default(false)
+  currentLat      Float?
+  currentLng      Float?
+  lastLocationAt  DateTime?
+  totalTrips      Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ambulance Ambulance?
+
+  @@index([isOnDuty, isVerified])
+  @@map("driver_profiles")
+}
+
+model Ambulance {
+  id             String          @id @default(uuid())
+  registrationNo String          @unique
+  type           AmbulanceType   @default(BASIC)
+  status         AmbulanceStatus @default(OFFLINE)
+  equipment      String[]
+  capacity       Int             @default(1)
+  baseFare       Decimal         @db.Decimal(10, 2)
+  perKmRate      Decimal         @db.Decimal(10, 2)
+  stationName    String?
+  currentLat     Float?
+  currentLng     Float?
+  driverId       String?         @unique // DriverProfile.id — one driver ⇄ one ambulance
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  driver      DriverProfile?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  emergencies EmergencyRequest[]
+
+  @@index([status, type])
+  @@index([deletedAt])
+  @@map("ambulances")
+}
+
+// ------------------------------------------------------------
+//  Hospitals
+// ------------------------------------------------------------
+
+model Hospital {
+  id                 String   @id @default(uuid())
+  name               String
+  address            String
+  city               String
+  phone              String
+  latitude           Float
+  longitude          Float
+  totalEmergencyBeds Int      @default(0)
+  availableBeds      Int      @default(0)
+  hasICU             Boolean  @default(false)
+  specialties        String[]
+  isActive           Boolean  @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  emergencies EmergencyRequest[]
+
+  @@index([city])
+  @@index([isActive, deletedAt])
+  @@map("hospitals")
+}
+
+// ------------------------------------------------------------
+//  Emergency Requests (the core "trip" entity)
+// ------------------------------------------------------------
+
+model EmergencyRequest {
+  id           String  @id @default(uuid())
+  trackingCode String  @unique // e.g. EMR-20261118-8F3K
+  patientId    String // caller (User with PATIENT role)
+  ambulanceId  String?
+  driverId     String? // User.id of the assigned driver
+  dispatcherId String? // User.id of the admin who dispatched
+  hospitalId   String?
+
+  emergencyType EmergencyType
+  priority      Priority
+  priorityScore Int // 0–100, higher = more urgent (used for queue ordering)
+  status        EmergencyStatus @default(PENDING)
+
+  patientName      String
+  patientPhone     String
+  patientAge       Int?
+  isConscious      Boolean @default(true)
+  isBreathing      Boolean @default(true)
+  hasHeavyBleeding Boolean @default(false)
+  description      String?
+
+  pickupAddress         String
+  pickupLat             Float
+  pickupLng             Float
+  requiredAmbulanceType AmbulanceType?
+
+  distanceKm    Decimal? @db.Decimal(8, 2)
+  estimatedFare Decimal? @db.Decimal(10, 2)
+  finalFare     Decimal? @db.Decimal(10, 2)
+  cancelReason  String?
+
+  dispatchedAt DateTime?
+  enRouteAt    DateTime?
+  atPickupAt   DateTime?
+  pickedUpAt   DateTime?
+  atHospitalAt DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  patient    User                 @relation("PatientRequests", fields: [patientId], references: [id])
+  driver     User?                @relation("DriverAssignments", fields: [driverId], references: [id])
+  dispatcher User?                @relation("DispatcherActions", fields: [dispatcherId], references: [id])
+  ambulance  Ambulance?           @relation(fields: [ambulanceId], references: [id])
+  hospital   Hospital?            @relation(fields: [hospitalId], references: [id])
+  statusLogs EmergencyStatusLog[]
+  payment    Payment?
+
+  @@index([status, priorityScore(sort: Desc), createdAt])
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([driverId, status])
+  @@index([ambulanceId])
+  @@index([deletedAt])
+  @@map("emergency_requests")
+}
+
+model EmergencyStatusLog {
+  id          String           @id @default(uuid())
+  emergencyId String
+  fromStatus  EmergencyStatus?
+  toStatus    EmergencyStatus
+  changedById String?
+  note        String?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime         @default(now())
+
+  emergency EmergencyRequest @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  changedBy User?            @relation(fields: [changedById], references: [id])
+
+  @@index([emergencyId, createdAt])
+  @@map("emergency_status_logs")
+}
+
+// ------------------------------------------------------------
+//  Payments (Stripe)
+// ------------------------------------------------------------
+
+model Payment {
+  id                    String        @id @default(uuid())
+  emergencyId           String        @unique
+  userId                String
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("bdt")
+  status                PaymentStatus @default(PENDING)
+  stripeSessionId       String?       @unique
+  stripePaymentIntentId String?       @unique
+  checkoutUrl           String?
+  paidAt                DateTime?
+  failureReason         String?
+  gatewayResponse       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  emergency EmergencyRequest @relation(fields: [emergencyId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+// ------------------------------------------------------------
+//  Notifications & Audit
+// ------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  actorRole Role?
+  action    String // e.g. EMERGENCY_DISPATCHED, USER_ROLE_CHANGED
+  entity    String // e.g. EmergencyRequest, User
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([action, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
