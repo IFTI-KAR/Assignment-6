@@ -4,7 +4,10 @@ import { PrismaClient } from "../generated/prisma/client";
 
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: config.databaseUrl }),
+    adapter: new PrismaPg({
+      connectionString:
+        config.databaseUrl || "postgresql://unconfigured:unconfigured@127.0.0.1:1/unconfigured",
+    }),
     log: config.isProduction ? ["error"] : ["warn", "error"],
   });
 

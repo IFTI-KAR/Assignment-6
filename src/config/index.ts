@@ -7,7 +7,9 @@ const envSchema = z.object({
   APP_URL: z.url().default("http://localhost:5000"),
   CORS_ORIGINS: z.string().default(""),
 
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  DATABASE_URL: process.env.VERCEL
+    ? z.string().optional().default("")
+    : z.string().min(1, "DATABASE_URL is required"),
   REDIS_URL: z.string().optional().default(""),
 
   JWT_ACCESS_SECRET: z.string().min(16, "JWT_ACCESS_SECRET must be at least 16 characters"),

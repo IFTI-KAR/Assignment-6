@@ -4,6 +4,7 @@ import express, { type Application } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import { config } from "./config";
+import { AppError } from "./errors/AppError";
 import { prisma } from "./lib/prisma";
 import { cache } from "./lib/redis";
 import { globalErrorHandler } from "./middlewares/globalErrorHandler";
@@ -52,6 +53,12 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/api/v1/health", async (_req, res) => {
+  if (!config.databaseUrl) {
+    throw new AppError(
+      503,
+      "Database is not configured (set DATABASE_URL in environment variables)",
+    );
+  }
   const started = Date.now();
   await prisma.$queryRaw`SELECT 1`;
   res.json({
