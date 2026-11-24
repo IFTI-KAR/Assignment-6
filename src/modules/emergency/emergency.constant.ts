@@ -39,7 +39,9 @@ export const DRIVER_TRANSITIONS: Partial<Record<EmergencyStatus, EmergencyStatus
 };
 
 /** Timestamp column written when entering each status. */
-export const STATUS_TIMESTAMP_FIELD: Partial<Record<EmergencyStatus, keyof Prisma.EmergencyRequestUpdateInput>> = {
+export const STATUS_TIMESTAMP_FIELD: Partial<
+  Record<EmergencyStatus, keyof Prisma.EmergencyRequestUpdateInput>
+> = {
   DISPATCHED: "dispatchedAt",
   EN_ROUTE: "enRouteAt",
   AT_PICKUP: "atPickupAt",
@@ -52,9 +54,19 @@ export const STATUS_TIMESTAMP_FIELD: Partial<Record<EmergencyStatus, keyof Prism
 /** Patients may cancel only before the ambulance reaches them. */
 export const PATIENT_CANCELLABLE: EmergencyStatus[] = ["PENDING", "DISPATCHED", "EN_ROUTE"];
 /** Admins can cancel at any point before the patient is on board. */
-export const ADMIN_CANCELLABLE: EmergencyStatus[] = ["PENDING", "DISPATCHED", "EN_ROUTE", "AT_PICKUP"];
+export const ADMIN_CANCELLABLE: EmergencyStatus[] = [
+  "PENDING",
+  "DISPATCHED",
+  "EN_ROUTE",
+  "AT_PICKUP",
+];
 /** Hospital may be (re)selected while the trip is still heading there. */
-export const HOSPITAL_SELECTABLE: EmergencyStatus[] = ["DISPATCHED", "EN_ROUTE", "AT_PICKUP", "PATIENT_ONBOARD"];
+export const HOSPITAL_SELECTABLE: EmergencyStatus[] = [
+  "DISPATCHED",
+  "EN_ROUTE",
+  "AT_PICKUP",
+  "PATIENT_ONBOARD",
+];
 
 // ------------------------------------------------------------------
 //  Triage / priority scoring
@@ -88,7 +100,12 @@ export const scoreToPriority = (score: number): Priority => {
 };
 
 /** Minimum score for a manually overridden priority (keeps queue ordering consistent). */
-export const PRIORITY_FLOOR: Record<Priority, number> = { CRITICAL: 90, HIGH: 70, MEDIUM: 50, LOW: 20 };
+export const PRIORITY_FLOOR: Record<Priority, number> = {
+  CRITICAL: 90,
+  HIGH: 70,
+  MEDIUM: 50,
+  LOW: 20,
+};
 
 /** Rule-based triage: emergency type + vital signs + age → 0-100 score → priority level. */
 export const calculatePriority = (t: TriageInput) => {
@@ -102,7 +119,10 @@ export const calculatePriority = (t: TriageInput) => {
 };
 
 /** Picks an ambulance class when the caller didn't request one. */
-export const recommendAmbulanceType = (priority: Priority, patientAge?: number | null): AmbulanceType | null => {
+export const recommendAmbulanceType = (
+  priority: Priority,
+  patientAge?: number | null,
+): AmbulanceType | null => {
   if (patientAge != null && patientAge < 1) return "NEONATAL";
   if (priority === "CRITICAL") return "ADVANCED";
   return null; // any ambulance is acceptable
@@ -116,4 +136,9 @@ export const COMPATIBLE_TYPES: Record<AmbulanceType, AmbulanceType[]> = {
   NEONATAL: ["NEONATAL"],
 };
 
-export const emergencySortableFields = ["createdAt", "priorityScore", "status", "completedAt"] as const;
+export const emergencySortableFields = [
+  "createdAt",
+  "priorityScore",
+  "status",
+  "completedAt",
+] as const;

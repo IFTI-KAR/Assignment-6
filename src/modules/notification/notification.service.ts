@@ -12,7 +12,11 @@ const list = async (userId: string, query: ListNotificationsQuery) => {
     ...(type && { type }),
   };
   const [data, total, unread] = await prisma.$transaction([
-    prisma.notification.findMany({ where, ...getPagination(page, limit), orderBy: { createdAt: "desc" } }),
+    prisma.notification.findMany({
+      where,
+      ...getPagination(page, limit),
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.notification.count({ where }),
     prisma.notification.count({ where: { userId, isRead: false } }),
   ]);
@@ -20,7 +24,10 @@ const list = async (userId: string, query: ListNotificationsQuery) => {
 };
 
 const markRead = async (userId: string, id: string) => {
-  const { count } = await prisma.notification.updateMany({ where: { id, userId }, data: { isRead: true } });
+  const { count } = await prisma.notification.updateMany({
+    where: { id, userId },
+    data: { isRead: true },
+  });
   if (count === 0) throw new AppError(404, "Notification not found");
   return prisma.notification.findUniqueOrThrow({ where: { id } });
 };

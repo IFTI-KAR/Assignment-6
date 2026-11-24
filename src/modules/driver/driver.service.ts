@@ -15,7 +15,10 @@ const driverInclude = {
 } satisfies Prisma.DriverProfileInclude;
 
 const getProfileByUserId = async (userId: string) => {
-  const profile = await prisma.driverProfile.findUnique({ where: { userId }, include: { ambulance: true } });
+  const profile = await prisma.driverProfile.findUnique({
+    where: { userId },
+    include: { ambulance: true },
+  });
   if (!profile) throw new AppError(404, "Driver profile not found");
   return profile;
 };
@@ -65,7 +68,14 @@ const getById = async (id: string) => {
     where: { driverId: driver.userId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     take: 10,
-    select: { id: true, trackingCode: true, status: true, priority: true, createdAt: true, completedAt: true },
+    select: {
+      id: true,
+      trackingCode: true,
+      status: true,
+      priority: true,
+      createdAt: true,
+      completedAt: true,
+    },
   });
   return { ...driver, recentTrips };
 };
@@ -80,7 +90,11 @@ const verify = async (id: string, isVerified: boolean, actor: Actor) => {
 
   if (!isVerified) {
     const trip = await hasActiveTrip(driver.userId);
-    if (trip) throw new AppError(409, `Driver is on an active trip (${trip.trackingCode}); try again later`);
+    if (trip)
+      throw new AppError(
+        409,
+        `Driver is on an active trip (${trip.trackingCode}); try again later`,
+      );
   }
 
   return prisma.$transaction(async (tx) => {
@@ -90,7 +104,10 @@ const verify = async (id: string, isVerified: boolean, actor: Actor) => {
       include: driverInclude,
     });
     if (!isVerified && driver.ambulance?.status === "AVAILABLE") {
-      await tx.ambulance.update({ where: { id: driver.ambulance.id }, data: { status: "OFFLINE" } });
+      await tx.ambulance.update({
+        where: { id: driver.ambulance.id },
+        data: { status: "OFFLINE" },
+      });
     }
     await logAudit(
       {
@@ -126,7 +143,11 @@ const updateDuty = async (userId: string, input: UpdateDutyInput, ip?: string) =
   }
   if (!input.isOnDuty) {
     const trip = await hasActiveTrip(userId);
-    if (trip) throw new AppError(409, `Finish your active trip (${trip.trackingCode}) before going off duty`);
+    if (trip)
+      throw new AppError(
+        409,
+        `Finish your active trip (${trip.trackingCode}) before going off duty`,
+      );
   }
 
   const hasLocation = input.lat !== undefined && input.lng !== undefined;
@@ -136,7 +157,11 @@ const updateDuty = async (userId: string, input: UpdateDutyInput, ip?: string) =
       where: { id: profile.id },
       data: {
         isOnDuty: input.isOnDuty,
-        ...(hasLocation && { currentLat: input.lat, currentLng: input.lng, lastLocationAt: new Date() }),
+        ...(hasLocation && {
+          currentLat: input.lat,
+          currentLng: input.lng,
+          lastLocationAt: new Date(),
+        }),
       },
       include: driverInclude,
     });
@@ -144,7 +169,11 @@ const updateDuty = async (userId: string, input: UpdateDutyInput, ip?: string) =
     if (profile.ambulance) {
       const { status } = profile.ambulance;
       const nextStatus =
-        input.isOnDuty && status === "OFFLINE" ? "AVAILABLE" : !input.isOnDuty && status === "AVAILABLE" ? "OFFLINE" : status;
+        input.isOnDuty && status === "OFFLINE"
+          ? "AVAILABLE"
+          : !input.isOnDuty && status === "AVAILABLE"
+            ? "OFFLINE"
+            : status;
       await tx.ambulance.update({
         where: { id: profile.ambulance.id },
         data: {
@@ -169,7 +198,9 @@ const updateDuty = async (userId: string, input: UpdateDutyInput, ip?: string) =
     );
     return {
       ...updated,
-      warning: !profile.ambulance ? "No ambulance is assigned to you yet; you won't receive dispatches." : undefined,
+      warning: !profile.ambulance
+        ? "No ambulance is assigned to you yet; you won't receive dispatches."
+        : undefined,
     };
   });
 };
@@ -192,12 +223,20 @@ const updateLocation = async (userId: string, input: UpdateLocationInput) => {
         ]
       : []),
   ]);
-  return { lat: input.lat, lng: input.lng, lastLocationAt: now, ambulanceId: profile.ambulance?.id ?? null };
+  return {
+    lat: input.lat,
+    lng: input.lng,
+    lastLocationAt: now,
+    ambulanceId: profile.ambulance?.id ?? null,
+  };
 };
 
 /** Personal dashboard: trip counts, distance driven and fares collected. */
 const mySummary = async (userId: string) => {
-  const profile = await prisma.driverProfile.findUnique({ where: { userId }, include: driverInclude });
+  const profile = await prisma.driverProfile.findUnique({
+    where: { userId },
+    include: driverInclude,
+  });
   if (!profile) throw new AppError(404, "Driver profile not found");
 
   const [byStatus, completedAgg, activeTrip] = await Promise.all([

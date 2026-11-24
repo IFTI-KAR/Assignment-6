@@ -1,8 +1,8 @@
+import { config } from "../../config";
 import { AppError } from "../../errors/AppError";
 import type { AmbulanceType, EmergencyRequest, Role } from "../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import { CacheKeys, cache } from "../../lib/redis";
-import { config } from "../../config";
 import { AuditAction, logAudit } from "../../utils/audit";
 import { etaMinutes, roadDistanceKm } from "../../utils/geo";
 import { notify } from "../../utils/notify";
@@ -13,7 +13,12 @@ import {
   HOSPITAL_SELECTABLE,
   STATUS_TIMESTAMP_FIELD,
 } from "./emergency.constant";
-import { assertCanAccess, calculateFare, emergencyDetailInclude, recordStatusChange } from "./emergency.utils";
+import {
+  assertCanAccess,
+  calculateFare,
+  emergencyDetailInclude,
+  recordStatusChange,
+} from "./emergency.utils";
 import type { UpdateStatusInput } from "./emergency.validation";
 
 type Requester = { id: string; role: Role };
@@ -90,7 +95,11 @@ const assign = async (emergency: EmergencyRequest, c: Candidate, admin: Requeste
         type: "DISPATCH",
         title: `New ${emergency.priority} assignment`,
         message: `${emergency.emergencyType} at ${emergency.pickupAddress}. Contact: ${emergency.patientPhone}`,
-        metadata: { emergencyId: emergency.id, pickupLat: emergency.pickupLat, pickupLng: emergency.pickupLng },
+        metadata: {
+          emergencyId: emergency.id,
+          pickupLat: emergency.pickupLat,
+          pickupLng: emergency.pickupLng,
+        },
       },
       tx,
     );
@@ -114,17 +123,26 @@ const assign = async (emergency: EmergencyRequest, c: Candidate, admin: Requeste
   });
 
 /** Validates a dispatcher-chosen ambulance and turns it into a dispatch candidate. */
-const manualCandidate = async (emergency: EmergencyRequest, ambulanceId: string): Promise<Candidate> => {
+const manualCandidate = async (
+  emergency: EmergencyRequest,
+  ambulanceId: string,
+): Promise<Candidate> => {
   const amb = await prisma.ambulance.findFirst({
     where: { id: ambulanceId, deletedAt: null },
-    include: { driver: { include: { user: { select: { id: true, status: true, deletedAt: true } } } } },
+    include: {
+      driver: { include: { user: { select: { id: true, status: true, deletedAt: true } } } },
+    },
   });
   if (!amb) throw new AppError(404, "Ambulance not found");
-  if (amb.status !== "AVAILABLE") throw new AppError(409, `Ambulance is ${amb.status}, not AVAILABLE`);
-  if (!amb.driver || !amb.driver.isVerified || !amb.driver.isOnDuty || amb.driver.user.status !== "ACTIVE") {
+  if (amb.status !== "AVAILABLE")
+    throw new AppError(409, `Ambulance is ${amb.status}, not AVAILABLE`);
+  if (!amb.driver?.isVerified || !amb.driver.isOnDuty || amb.driver.user.status !== "ACTIVE") {
     throw new AppError(409, "Ambulance has no verified, on-duty driver");
   }
-  if (emergency.requiredAmbulanceType && !COMPATIBLE_TYPES[emergency.requiredAmbulanceType].includes(amb.type)) {
+  if (
+    emergency.requiredAmbulanceType &&
+    !COMPATIBLE_TYPES[emergency.requiredAmbulanceType].includes(amb.type)
+  ) {
     throw new AppError(
       400,
       `This emergency requires a ${emergency.requiredAmbulanceType}-capable ambulance (got ${amb.type})`,
@@ -155,25 +173,39 @@ const autoCandidates = async (emergency: EmergencyRequest) => {
   let fallback = false;
   let found = await findNearestAvailable(origin, emergency.requiredAmbulanceType, 5);
 
-  if (!found.length && emergency.requiredAmbulanceType && emergency.requiredAmbulanceType !== "NEONATAL") {
+  if (
+    !found.length &&
+    emergency.requiredAmbulanceType &&
+    emergency.requiredAmbulanceType !== "NEONATAL"
+  ) {
     // Sending a basic unit now beats sending nothing.
     found = await findNearestAvailable(origin, null, 5);
     fallback = found.length > 0;
   }
 
-  const candidates: Candidate[] = found.map((a) => ({
-    id: a.id,
-    driverId: a.driverId,
-    registrationNo: a.registrationNo,
-    type: a.type,
-    driverUserId: a.driver!.user.id,
-    distanceKm: a.distanceKm,
-    etaMinutes: a.etaMinutes,
-  }));
+  const candidates: Candidate[] = found.flatMap((a) => {
+    if (!a.driver) return [];
+    return [
+      {
+        id: a.id,
+        driverId: a.driverId,
+        registrationNo: a.registrationNo,
+        type: a.type,
+        driverUserId: a.driver.user.id,
+        distanceKm: a.distanceKm,
+        etaMinutes: a.etaMinutes,
+      },
+    ];
+  });
   return { candidates, fallback };
 };
 
-const dispatch = async (id: string, ambulanceId: string | undefined, admin: Requester, meta: ReqMeta) => {
+const dispatch = async (
+  id: string,
+  ambulanceId: string | undefined,
+  admin: Requester,
+  meta: ReqMeta,
+) => {
   const emergency = await prisma.emergencyRequest.findFirst({ where: { id, deletedAt: null } });
   if (!emergency) throw new AppError(404, "Emergency request not found");
   if (emergency.status !== "PENDING") {
@@ -184,12 +216,18 @@ const dispatch = async (id: string, ambulanceId: string | undefined, admin: Requ
     const candidate = await manualCandidate(emergency, ambulanceId);
     const result = await assign(emergency, candidate, admin, meta);
     await cache.invalidate(CacheKeys.dashboard);
-    return { emergency: result, dispatch: { mode: "MANUAL", ...pickInfo(candidate), fallback: false } };
+    return {
+      emergency: result,
+      dispatch: { mode: "MANUAL", ...pickInfo(candidate), fallback: false },
+    };
   }
 
   const { candidates, fallback } = await autoCandidates(emergency);
   if (!candidates.length) {
-    throw new AppError(409, "No available ambulance with an on-duty driver right now; request stays in queue");
+    throw new AppError(
+      409,
+      "No available ambulance with an on-duty driver right now; request stays in queue",
+    );
   }
 
   for (const candidate of candidates) {
@@ -235,37 +273,60 @@ const dispatchNext = async (admin: Requester, meta: ReqMeta) => {
 };
 
 /** Driver moves the trip forward through the state machine. */
-const updateStatus = async (id: string, input: UpdateStatusInput, driver: Requester, meta: ReqMeta) => {
+const updateStatus = async (
+  id: string,
+  input: UpdateStatusInput,
+  driver: Requester,
+  meta: ReqMeta,
+) => {
   const emergency = await prisma.emergencyRequest.findFirst({
     where: { id, deletedAt: null },
     include: { ambulance: true, hospital: true },
   });
   if (!emergency) throw new AppError(404, "Emergency request not found");
-  if (emergency.driverId !== driver.id) throw new AppError(403, "This emergency is not assigned to you");
+  if (emergency.driverId !== driver.id)
+    throw new AppError(403, "This emergency is not assigned to you");
+
+  if (!emergency.ambulance || !emergency.ambulanceId) {
+    throw new AppError(409, "Emergency has no assigned ambulance");
+  }
+  const assignedAmbulance = emergency.ambulance;
+  const assignedAmbulanceId = emergency.ambulanceId;
 
   const expected = DRIVER_TRANSITIONS[emergency.status];
-  if (!expected) throw new AppError(409, `No further driver action is possible on a ${emergency.status} trip`);
+  if (!expected)
+    throw new AppError(409, `No further driver action is possible on a ${emergency.status} trip`);
   if (input.status !== expected) {
-    throw new AppError(400, `Invalid transition ${emergency.status} → ${input.status}. Next allowed: ${expected}`, [
-      { path: "status", message: `Expected ${expected}` },
-    ]);
+    throw new AppError(
+      400,
+      `Invalid transition ${emergency.status} → ${input.status}. Next allowed: ${expected}`,
+      [{ path: "status", message: `Expected ${expected}` }],
+    );
   }
-  if ((input.status === "AT_HOSPITAL" || input.status === "COMPLETED") && !emergency.hospital) {
+  const destinationHospital = emergency.hospital;
+  if ((input.status === "AT_HOSPITAL" || input.status === "COMPLETED") && !destinationHospital) {
     throw new AppError(400, "Select a destination hospital before arriving at the hospital");
+  }
+
+  const timestampField = STATUS_TIMESTAMP_FIELD[input.status];
+  if (!timestampField) {
+    throw new AppError(400, `No timestamp mapping for status ${input.status}`);
   }
 
   const hasLocation = input.lat !== undefined && input.lng !== undefined;
 
   const result = await prisma.$transaction(async (tx) => {
-    const timestampField = STATUS_TIMESTAMP_FIELD[input.status]!;
     const data: Record<string, unknown> = { status: input.status, [timestampField]: new Date() };
     let fareInfo: { distanceKm: number; fare: number } | null = null;
 
     if (input.status === "COMPLETED") {
+      if (!destinationHospital) {
+        throw new AppError(400, "Select a destination hospital before completing the trip");
+      }
       fareInfo = calculateFare(
         { lat: emergency.pickupLat, lng: emergency.pickupLng },
-        { lat: emergency.hospital!.latitude, lng: emergency.hospital!.longitude },
-        emergency.ambulance!,
+        { lat: destinationHospital.latitude, lng: destinationHospital.longitude },
+        assignedAmbulance,
       );
       data.distanceKm = fareInfo.distanceKm;
       data.finalFare = fareInfo.fare;
@@ -280,7 +341,7 @@ const updateStatus = async (id: string, input: UpdateStatusInput, driver: Reques
 
     if (hasLocation) {
       await tx.ambulance.update({
-        where: { id: emergency.ambulanceId! },
+        where: { id: assignedAmbulanceId },
         data: { currentLat: input.lat, currentLng: input.lng },
       });
       await tx.driverProfile.updateMany({
@@ -289,23 +350,23 @@ const updateStatus = async (id: string, input: UpdateStatusInput, driver: Reques
       });
     }
 
-    if (input.status === "COMPLETED" && fareInfo) {
+    if (input.status === "COMPLETED" && fareInfo && destinationHospital) {
       const profile = await tx.driverProfile.update({
         where: { userId: driver.id },
         data: {
           totalTrips: { increment: 1 },
-          currentLat: emergency.hospital!.latitude,
-          currentLng: emergency.hospital!.longitude,
+          currentLat: destinationHospital.latitude,
+          currentLng: destinationHospital.longitude,
           lastLocationAt: new Date(),
         },
       });
       // Release the ambulance at the hospital's location.
       await tx.ambulance.update({
-        where: { id: emergency.ambulanceId! },
+        where: { id: assignedAmbulanceId },
         data: {
           status: profile.isOnDuty ? "AVAILABLE" : "OFFLINE",
-          currentLat: emergency.hospital!.latitude,
-          currentLng: emergency.hospital!.longitude,
+          currentLat: destinationHospital.latitude,
+          currentLng: destinationHospital.longitude,
         },
       });
       // Bill is generated now; the patient pays it through Stripe Checkout.
@@ -353,13 +414,20 @@ const updateStatus = async (id: string, input: UpdateStatusInput, driver: Reques
         action: AuditAction.EMERGENCY_STATUS_CHANGED,
         entity: "EmergencyRequest",
         entityId: id,
-        metadata: { from: emergency.status, to: input.status, ...(fareInfo && { fare: fareInfo.fare }) },
+        metadata: {
+          from: emergency.status,
+          to: input.status,
+          ...(fareInfo && { fare: fareInfo.fare }),
+        },
         ip: meta.ip,
       },
       tx,
     );
 
-    return tx.emergencyRequest.findUniqueOrThrow({ where: { id }, include: emergencyDetailInclude });
+    return tx.emergencyRequest.findUniqueOrThrow({
+      where: { id },
+      include: emergencyDetailInclude,
+    });
   });
 
   if (input.status === "COMPLETED") await cache.invalidate(CacheKeys.dashboard);
@@ -377,23 +445,33 @@ const selectHospital = async (id: string, hospitalId: string, user: Requester, m
   });
   if (!emergency) throw new AppError(404, "Emergency request not found");
   assertCanAccess(emergency, user);
-  if (user.role === "PATIENT") throw new AppError(403, "Only the driver or dispatcher can select the hospital");
+  if (user.role === "PATIENT")
+    throw new AppError(403, "Only the driver or dispatcher can select the hospital");
 
   if (!HOSPITAL_SELECTABLE.includes(emergency.status)) {
     throw new AppError(409, `Hospital cannot be selected while ${emergency.status}`);
   }
-  if (emergency.hospitalId === hospitalId) throw new AppError(400, "This hospital is already selected");
+  if (emergency.hospitalId === hospitalId)
+    throw new AppError(400, "This hospital is already selected");
 
-  const hospital = await prisma.hospital.findFirst({ where: { id: hospitalId, deletedAt: null, isActive: true } });
+  const hospital = await prisma.hospital.findFirst({
+    where: { id: hospitalId, deletedAt: null, isActive: true },
+  });
   if (!hospital) throw new AppError(404, "Hospital not found or inactive");
-  if (emergency.priority === "CRITICAL" && emergency.requiredAmbulanceType === "ICU" && !hospital.hasICU) {
+  if (
+    emergency.priority === "CRITICAL" &&
+    emergency.requiredAmbulanceType === "ICU" &&
+    !hospital.hasICU
+  ) {
     throw new AppError(400, "This patient needs a hospital with an ICU");
   }
+
+  if (!emergency.ambulance) throw new AppError(409, "Emergency has no assigned ambulance");
 
   const { distanceKm, fare } = calculateFare(
     { lat: emergency.pickupLat, lng: emergency.pickupLng },
     { lat: hospital.latitude, lng: hospital.longitude },
-    emergency.ambulance!,
+    emergency.ambulance,
   );
 
   const result = await prisma.$transaction(async (tx) => {
@@ -401,7 +479,8 @@ const selectHospital = async (id: string, hospitalId: string, user: Requester, m
       where: { id: hospitalId, availableBeds: { gt: 0 }, isActive: true, deletedAt: null },
       data: { availableBeds: { decrement: 1 } },
     });
-    if (reserved.count === 0) throw new AppError(409, `${hospital.name} has no free emergency beds`);
+    if (reserved.count === 0)
+      throw new AppError(409, `${hospital.name} has no free emergency beds`);
 
     if (emergency.hospitalId) {
       await tx.hospital.update({
@@ -425,7 +504,9 @@ const selectHospital = async (id: string, hospitalId: string, user: Requester, m
     });
     await notify(
       {
-        userIds: [emergency.patientId, emergency.driverId].filter((u): u is string => !!u && u !== user.id),
+        userIds: [emergency.patientId, emergency.driverId].filter(
+          (u): u is string => !!u && u !== user.id,
+        ),
         type: "TRIP_UPDATE",
         title: "Destination hospital selected",
         message: `${hospital.name}, ${hospital.address}. Estimated fare: ${fare} ${config.stripe.currency.toUpperCase()}.`,
@@ -440,12 +521,20 @@ const selectHospital = async (id: string, hospitalId: string, user: Requester, m
         action: AuditAction.EMERGENCY_HOSPITAL_ASSIGNED,
         entity: "EmergencyRequest",
         entityId: id,
-        metadata: { previousHospitalId: emergency.hospitalId, hospitalId, distanceKm, estimatedFare: fare },
+        metadata: {
+          previousHospitalId: emergency.hospitalId,
+          hospitalId,
+          distanceKm,
+          estimatedFare: fare,
+        },
         ip: meta.ip,
       },
       tx,
     );
-    return tx.emergencyRequest.findUniqueOrThrow({ where: { id }, include: emergencyDetailInclude });
+    return tx.emergencyRequest.findUniqueOrThrow({
+      where: { id },
+      include: emergencyDetailInclude,
+    });
   });
 
   await cache.invalidate(CacheKeys.hospitals);

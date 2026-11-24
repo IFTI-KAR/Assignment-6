@@ -2,7 +2,13 @@ import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../errors/AppError";
 import type { Role } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
+import type { AuthUser } from "../types/express";
 import { verifyAccessToken } from "../utils/jwt";
+
+export const requireUser = (req: Request): AuthUser => {
+  if (!req.user) throw new AppError(401, "Unauthorized");
+  return req.user;
+};
 
 /**
  * Bearer-token authentication + role-based authorization.
@@ -34,6 +40,12 @@ export const auth =
       throw new AppError(403, `Forbidden: requires role ${allowedRoles.join(" or ")}`);
     }
 
-    req.user = { id: user.id, email: user.email, name: user.name, role: user.role, status: user.status };
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+    };
     next();
   };

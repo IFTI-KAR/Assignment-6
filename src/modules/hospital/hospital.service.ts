@@ -26,7 +26,12 @@ const findActiveOrThrow = async (id: string) => {
 
 const create = async (input: CreateHospitalInput, actor: Actor) => {
   const hospital = await prisma.hospital.create({ data: input });
-  await logAudit({ ...actor, action: AuditAction.HOSPITAL_CREATED, entity: "Hospital", entityId: hospital.id });
+  await logAudit({
+    ...actor,
+    action: AuditAction.HOSPITAL_CREATED,
+    entity: "Hospital",
+    entityId: hospital.id,
+  });
   await cache.invalidate(CacheKeys.hospitals);
   return hospital;
 };
@@ -36,8 +41,17 @@ const list = async (query: ListHospitalsQuery) => {
   const cacheKey = `${CacheKeys.hospitals}list:${JSON.stringify(query)}`;
 
   return cache.getOrSet(cacheKey, HOSPITAL_CACHE_TTL, async () => {
-    const { page, limit, searchTerm, city, hasICU, hasAvailableBeds, specialty, sortBy, sortOrder } =
-      query;
+    const {
+      page,
+      limit,
+      searchTerm,
+      city,
+      hasICU,
+      hasAvailableBeds,
+      specialty,
+      sortBy,
+      sortOrder,
+    } = query;
 
     const where: Prisma.HospitalWhereInput = {
       deletedAt: null,
@@ -148,8 +162,14 @@ const updateBeds = async (id: string, input: UpdateBedsInput, actor: Actor) => {
     entity: "Hospital",
     entityId: id,
     metadata: {
-      before: { availableBeds: current.availableBeds, totalEmergencyBeds: current.totalEmergencyBeds },
-      after: { availableBeds: hospital.availableBeds, totalEmergencyBeds: hospital.totalEmergencyBeds },
+      before: {
+        availableBeds: current.availableBeds,
+        totalEmergencyBeds: current.totalEmergencyBeds,
+      },
+      after: {
+        availableBeds: hospital.availableBeds,
+        totalEmergencyBeds: hospital.totalEmergencyBeds,
+      },
     },
   });
   await cache.invalidate(CacheKeys.hospitals);
@@ -162,10 +182,18 @@ const softDelete = async (id: string, actor: Actor) => {
     where: { hospitalId: id, status: { in: ACTIVE_EMERGENCY_STATUSES }, deletedAt: null },
   });
   if (incoming > 0) {
-    throw new AppError(409, `Cannot delete: ${incoming} active emergency trip(s) are heading to this hospital`);
+    throw new AppError(
+      409,
+      `Cannot delete: ${incoming} active emergency trip(s) are heading to this hospital`,
+    );
   }
   await prisma.hospital.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } });
-  await logAudit({ ...actor, action: AuditAction.HOSPITAL_DELETED, entity: "Hospital", entityId: id });
+  await logAudit({
+    ...actor,
+    action: AuditAction.HOSPITAL_DELETED,
+    entity: "Hospital",
+    entityId: id,
+  });
   await cache.invalidate(CacheKeys.hospitals);
 };
 

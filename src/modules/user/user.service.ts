@@ -71,7 +71,11 @@ export const assertNoActiveEmergency = async (userId: string) => {
 };
 
 /** Soft delete + revoke sessions + release ambulance (for drivers) in one transaction. */
-export const softDeleteUser = async (userId: string, actor: { id: string; role: Role }, ip?: string) => {
+export const softDeleteUser = async (
+  userId: string,
+  actor: { id: string; role: Role },
+  ip?: string,
+) => {
   await assertNoActiveEmergency(userId);
 
   await prisma.$transaction(async (tx) => {

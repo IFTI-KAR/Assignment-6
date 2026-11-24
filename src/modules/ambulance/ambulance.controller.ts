@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { requireUser } from "../../middlewares/auth";
 import { auditContext } from "../../utils/audit";
 import { sendResponse } from "../../utils/sendResponse";
 import { AmbulanceService } from "./ambulance.service";
@@ -20,7 +21,7 @@ const available = async (req: Request, res: Response) => {
 };
 
 const getById = async (req: Request, res: Response) => {
-  const data = await AmbulanceService.getById(req.params.id as string, req.user!);
+  const data = await AmbulanceService.getById(req.params.id as string, requireUser(req));
   sendResponse(res, { message: "Ambulance retrieved successfully", data });
 };
 
@@ -36,13 +37,19 @@ const assignDriver = async (req: Request, res: Response) => {
     auditContext(req),
   );
   sendResponse(res, {
-    message: req.body.driverProfileId ? "Driver assigned to ambulance" : "Driver unassigned from ambulance",
+    message: req.body.driverProfileId
+      ? "Driver assigned to ambulance"
+      : "Driver unassigned from ambulance",
     data,
   });
 };
 
 const updateStatus = async (req: Request, res: Response) => {
-  const data = await AmbulanceService.updateStatus(req.params.id as string, req.body.status, auditContext(req));
+  const data = await AmbulanceService.updateStatus(
+    req.params.id as string,
+    req.body.status,
+    auditContext(req),
+  );
   sendResponse(res, { message: `Ambulance marked ${data.status}`, data });
 };
 

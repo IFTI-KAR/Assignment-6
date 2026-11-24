@@ -22,8 +22,18 @@ router.get(
   validateRequest(availableAmbulancesSchema),
   AmbulanceController.available,
 );
-router.get("/:id", auth("ADMIN", "DRIVER"), validateRequest(ambulanceIdSchema), AmbulanceController.getById);
-router.patch("/:id", auth("ADMIN"), validateRequest(updateAmbulanceSchema), AmbulanceController.update);
+router.get(
+  "/:id",
+  auth("ADMIN", "DRIVER"),
+  validateRequest(ambulanceIdSchema),
+  AmbulanceController.getById,
+);
+router.patch(
+  "/:id",
+  auth("ADMIN"),
+  validateRequest(updateAmbulanceSchema),
+  AmbulanceController.update,
+);
 router.patch(
   "/:id/driver",
   auth("ADMIN"),
@@ -36,6 +46,11 @@ router.patch(
   validateRequest(updateAmbulanceStatusSchema),
   AmbulanceController.updateStatus,
 );
-router.delete("/:id", auth("ADMIN"), validateRequest(ambulanceIdSchema), AmbulanceController.softDelete);
+router.delete(
+  "/:id",
+  auth("ADMIN"),
+  validateRequest(ambulanceIdSchema),
+  AmbulanceController.softDelete,
+);
 
 export const AmbulanceRoutes = router;

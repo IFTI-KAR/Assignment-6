@@ -32,7 +32,9 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  const details = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
+  const details = parsed.error.issues
+    .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+    .join("\n");
   // Fail fast: a misconfigured server must never start silently.
   throw new Error(`❌ Invalid environment variables:\n${details}`);
 }
@@ -59,7 +61,8 @@ export const config = {
   google: {
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: env.GOOGLE_REDIRECT_URI || `${env.APP_URL.replace(/\/$/, "")}/api/v1/auth/google/callback`,
+    redirectUri:
+      env.GOOGLE_REDIRECT_URI || `${env.APP_URL.replace(/\/$/, "")}/api/v1/auth/google/callback`,
   },
   stripe: {
     secretKey: env.STRIPE_SECRET_KEY,

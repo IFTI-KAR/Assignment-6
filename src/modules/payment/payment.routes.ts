@@ -14,14 +14,29 @@ import {
 // because Stripe signature verification needs the unparsed body.
 const router = Router();
 
-router.post("/checkout", auth("PATIENT"), validateRequest(checkoutSchema), PaymentController.createCheckout);
+router.post(
+  "/checkout",
+  auth("PATIENT"),
+  validateRequest(checkoutSchema),
+  PaymentController.createCheckout,
+);
 
 // Stripe redirect targets (public — verified server-side against Stripe)
 router.get("/success", validateRequest(sessionQuerySchema), PaymentController.success);
 router.get("/cancel", validateRequest(sessionQuerySchema), PaymentController.cancel);
 
-router.get("/", auth("PATIENT", "ADMIN"), validateRequest(listPaymentsSchema), PaymentController.list);
-router.get("/:id", auth("PATIENT", "ADMIN"), validateRequest(paymentIdSchema), PaymentController.getById);
+router.get(
+  "/",
+  auth("PATIENT", "ADMIN"),
+  validateRequest(listPaymentsSchema),
+  PaymentController.list,
+);
+router.get(
+  "/:id",
+  auth("PATIENT", "ADMIN"),
+  validateRequest(paymentIdSchema),
+  PaymentController.getById,
+);
 router.post("/:id/refund", auth("ADMIN"), validateRequest(refundSchema), PaymentController.refund);
 
 export const PaymentRoutes = router;

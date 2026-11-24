@@ -74,13 +74,19 @@ const changeRole = async (id: string, role: Role, admin: Admin, ip?: string) => 
   const user = await findLiveUser(id);
   if (user.role === role) throw new AppError(400, `User is already ${role}`);
   if (role === "DRIVER" && !user.driverProfile) {
-    throw new AppError(400, "User has no driver profile/license. Drivers must register via /auth/register/driver");
+    throw new AppError(
+      400,
+      "User has no driver profile/license. Drivers must register via /auth/register/driver",
+    );
   }
   await assertNoActiveEmergency(id);
 
   return prisma.$transaction(async (tx) => {
     if (user.role === "DRIVER" && user.driverProfile) {
-      await tx.driverProfile.update({ where: { id: user.driverProfile.id }, data: { isOnDuty: false } });
+      await tx.driverProfile.update({
+        where: { id: user.driverProfile.id },
+        data: { isOnDuty: false },
+      });
       if (user.driverProfile.ambulance) {
         await tx.ambulance.update({
           where: { id: user.driverProfile.ambulance.id },
@@ -90,7 +96,10 @@ const changeRole = async (id: string, role: Role, admin: Admin, ip?: string) => 
     }
     const updated = await tx.user.update({ where: { id }, data: { role }, select: safeUserSelect });
     // Old access tokens carry the old role → force a fresh login.
-    await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    await tx.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
     await logAudit(
       {
         actorId: admin.id,
@@ -114,11 +123,21 @@ const changeStatus = async (id: string, status: UserStatus, admin: Admin, ip?: s
   if (status === "BLOCKED") await assertNoActiveEmergency(id);
 
   return prisma.$transaction(async (tx) => {
-    const updated = await tx.user.update({ where: { id }, data: { status }, select: safeUserSelect });
+    const updated = await tx.user.update({
+      where: { id },
+      data: { status },
+      select: safeUserSelect,
+    });
     if (status === "BLOCKED") {
-      await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       if (user.driverProfile) {
-        await tx.driverProfile.update({ where: { id: user.driverProfile.id }, data: { isOnDuty: false } });
+        await tx.driverProfile.update({
+          where: { id: user.driverProfile.id },
+          data: { isOnDuty: false },
+        });
         await tx.ambulance.updateMany({
           where: { driverId: user.driverProfile.id, status: "AVAILABLE" },
           data: { status: "OFFLINE" },
@@ -180,22 +199,40 @@ const dashboardStats = async () =>
       responseTimes,
     ] = await Promise.all([
       prisma.user.groupBy({ by: ["role"], where: { deletedAt: null }, _count: { _all: true } }),
-      prisma.emergencyRequest.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { _all: true } }),
+      prisma.emergencyRequest.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      }),
       prisma.emergencyRequest.groupBy({
         by: ["priority"],
         where: { deletedAt: null, status: { in: ACTIVE_EMERGENCY_STATUSES } },
         _count: { _all: true },
       }),
-      prisma.ambulance.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { _all: true } }),
+      prisma.ambulance.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      }),
       prisma.driverProfile.count({ where: { isOnDuty: true, user: { deletedAt: null } } }),
       prisma.hospital.aggregate({
         where: { deletedAt: null, isActive: true },
         _sum: { availableBeds: true, totalEmergencyBeds: true },
         _count: { _all: true },
       }),
-      prisma.payment.aggregate({ where: { status: "PAID" }, _sum: { amount: true }, _count: { _all: true } }),
-      prisma.emergencyRequest.count({ where: { deletedAt: null, createdAt: { gte: startOfToday } } }),
-      prisma.payment.aggregate({ where: { status: "PENDING" }, _sum: { amount: true }, _count: { _all: true } }),
+      prisma.payment.aggregate({
+        where: { status: "PAID" },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.emergencyRequest.count({
+        where: { deletedAt: null, createdAt: { gte: startOfToday } },
+      }),
+      prisma.payment.aggregate({
+        where: { status: "PENDING" },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
       prisma.$queryRaw<ResponseTimeRow[]>`
         SELECT
           AVG(EXTRACT(EPOCH FROM ("dispatchedAt" - "createdAt")) / 60) AS avg_dispatch_min,
@@ -249,8 +286,9 @@ const emergencyReport = async ({ fromDate, toDate }: ReportQuery) => {
       createdAt: { gte: fromDate, lte: toDate },
     };
 
-    const [daily, byType, byPriority, topHospitals, revenue, arrivalByPriority] = await Promise.all([
-      prisma.$queryRaw<DailyRow[]>`
+    const [daily, byType, byPriority, topHospitals, revenue, arrivalByPriority] = await Promise.all(
+      [
+        prisma.$queryRaw<DailyRow[]>`
         SELECT date_trunc('day', "createdAt")::date AS day,
                COUNT(*)::int AS total,
                (COUNT(*) FILTER (WHERE status = 'COMPLETED'))::int AS completed,
@@ -258,21 +296,25 @@ const emergencyReport = async ({ fromDate, toDate }: ReportQuery) => {
         FROM emergency_requests
         WHERE "deletedAt" IS NULL AND "createdAt" BETWEEN ${fromDate} AND ${toDate}
         GROUP BY 1 ORDER BY 1`,
-      prisma.emergencyRequest.groupBy({ by: ["emergencyType"], where: range, _count: { _all: true } }),
-      prisma.emergencyRequest.groupBy({ by: ["priority"], where: range, _count: { _all: true } }),
-      prisma.emergencyRequest.groupBy({
-        by: ["hospitalId"],
-        where: { ...range, hospitalId: { not: null }, status: "COMPLETED" },
-        _count: { _all: true },
-        orderBy: { _count: { hospitalId: "desc" } },
-        take: 5,
-      }),
-      prisma.payment.aggregate({
-        where: { status: "PAID", paidAt: { gte: fromDate, lte: toDate } },
-        _sum: { amount: true },
-        _count: { _all: true },
-      }),
-      prisma.$queryRaw<PriorityRtRow[]>`
+        prisma.emergencyRequest.groupBy({
+          by: ["emergencyType"],
+          where: range,
+          _count: { _all: true },
+        }),
+        prisma.emergencyRequest.groupBy({ by: ["priority"], where: range, _count: { _all: true } }),
+        prisma.emergencyRequest.groupBy({
+          by: ["hospitalId"],
+          where: { ...range, hospitalId: { not: null }, status: "COMPLETED" },
+          _count: { _all: true },
+          orderBy: { _count: { hospitalId: "desc" } },
+          take: 5,
+        }),
+        prisma.payment.aggregate({
+          where: { status: "PAID", paidAt: { gte: fromDate, lte: toDate } },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        prisma.$queryRaw<PriorityRtRow[]>`
         SELECT priority::text AS priority,
                COUNT(*)::int AS trips,
                AVG(EXTRACT(EPOCH FROM ("atPickupAt" - "createdAt")) / 60) AS avg_arrival_min
@@ -280,10 +322,14 @@ const emergencyReport = async ({ fromDate, toDate }: ReportQuery) => {
         WHERE "deletedAt" IS NULL AND "atPickupAt" IS NOT NULL
           AND "createdAt" BETWEEN ${fromDate} AND ${toDate}
         GROUP BY priority`,
-    ]);
+      ],
+    );
 
+    const hospitalIds = topHospitals
+      .map((h) => h.hospitalId)
+      .filter((id): id is string => id !== null);
     const hospitals = await prisma.hospital.findMany({
-      where: { id: { in: topHospitals.map((h) => h.hospitalId!) } },
+      where: { id: { in: hospitalIds } },
       select: { id: true, name: true },
     });
     const nameOf = new Map(hospitals.map((h) => [h.id, h.name]));
@@ -300,7 +346,7 @@ const emergencyReport = async ({ fromDate, toDate }: ReportQuery) => {
       })),
       topHospitals: topHospitals.map((h) => ({
         hospitalId: h.hospitalId,
-        name: nameOf.get(h.hospitalId!) ?? "Unknown",
+        name: (h.hospitalId ? nameOf.get(h.hospitalId) : undefined) ?? "Unknown",
         completedTrips: h._count._all,
       })),
       revenue: { total: Number(revenue._sum.amount ?? 0), payments: revenue._count._all },

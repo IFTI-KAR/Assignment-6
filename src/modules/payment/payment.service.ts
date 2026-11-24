@@ -32,7 +32,9 @@ const paymentInclude = {
 const toMinorUnit = (amount: Prisma.Decimal | number) => Math.round(Number(amount) * 100);
 
 const intentId = (session: Stripe.Checkout.Session) =>
-  typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent?.id ?? null);
+  typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : (session.payment_intent?.id ?? null);
 
 const gatewaySnapshot = (session: Stripe.Checkout.Session) => ({
   sessionId: session.id,
@@ -50,10 +52,15 @@ const gatewaySnapshot = (session: Stripe.Checkout.Session) => ({
 const createCheckout = async (emergencyId: string, user: Requester) => {
   const payment = await prisma.payment.findUnique({
     where: { emergencyId },
-    include: { emergency: { select: { patientId: true, trackingCode: true, status: true, deletedAt: true } } },
+    include: {
+      emergency: { select: { patientId: true, trackingCode: true, status: true, deletedAt: true } },
+    },
   });
   if (!payment || payment.emergency.deletedAt) {
-    throw new AppError(404, "No bill found for this emergency (bills are generated when a trip completes)");
+    throw new AppError(
+      404,
+      "No bill found for this emergency (bills are generated when a trip completes)",
+    );
   }
   if (payment.userId !== user.id) throw new AppError(403, "This bill does not belong to you");
   if (payment.status === "PAID") throw new AppError(409, "This trip has already been paid");
@@ -65,7 +72,12 @@ const createCheckout = async (emergencyId: string, user: Requester) => {
   if (payment.stripeSessionId && payment.status === "PENDING") {
     const existing = await stripe.checkout.sessions.retrieve(payment.stripeSessionId);
     if (existing.status === "open" && existing.url) {
-      return { paymentId: payment.id, sessionId: existing.id, checkoutUrl: existing.url, reused: true };
+      return {
+        paymentId: payment.id,
+        sessionId: existing.id,
+        checkoutUrl: existing.url,
+        reused: true,
+      };
     }
   }
 
@@ -96,7 +108,12 @@ const createCheckout = async (emergencyId: string, user: Requester) => {
   await prisma.$transaction(async (tx) => {
     await tx.payment.update({
       where: { id: payment.id },
-      data: { stripeSessionId: session.id, checkoutUrl: session.url, status: "PENDING", failureReason: null },
+      data: {
+        stripeSessionId: session.id,
+        checkoutUrl: session.url,
+        status: "PENDING",
+        failureReason: null,
+      },
     });
     await logAudit(
       {
@@ -173,7 +190,10 @@ const markPaid = async (session: Stripe.Checkout.Session) => {
 
   if (updated) await cache.invalidate(CacheKeys.dashboard);
   return {
-    payment: await prisma.payment.findUniqueOrThrow({ where: { id: payment.id }, include: paymentInclude }),
+    payment: await prisma.payment.findUniqueOrThrow({
+      where: { id: payment.id },
+      include: paymentInclude,
+    }),
     updated,
   };
 };
@@ -241,7 +261,11 @@ const verifySuccess = async (sessionId: string) => {
   const session = await getStripe().checkout.sessions.retrieve(sessionId);
   if (session.payment_status !== "paid") {
     const payment = await findBySession(session);
-    return { verified: false, paymentStatus: session.payment_status, paymentId: payment?.id ?? null };
+    return {
+      verified: false,
+      paymentStatus: session.payment_status,
+      paymentId: payment?.id ?? null,
+    };
   }
   const { payment } = await markPaid(session);
   return { verified: true, paymentStatus: session.payment_status, payment };
@@ -252,7 +276,8 @@ const handleCancel = async (sessionId: string) => {
   const stripe = getStripe();
   let session = await stripe.checkout.sessions.retrieve(sessionId);
   if (session.status === "open") session = await stripe.checkout.sessions.expire(sessionId);
-  if (session.payment_status === "paid") return { cancelled: false, payment: (await markPaid(session)).payment };
+  if (session.payment_status === "paid")
+    return { cancelled: false, payment: (await markPaid(session)).payment };
   const payment = await markUnsuccessful(session, "CANCELLED", "Customer cancelled the checkout");
   return { cancelled: true, payment };
 };

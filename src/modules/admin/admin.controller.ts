@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { requireUser } from "../../middlewares/auth";
 import { sendResponse } from "../../utils/sendResponse";
 import { AdminService } from "./admin.service";
 import type { AuditLogsQuery, ListUsersQuery, ReportQuery } from "./admin.validation";
@@ -14,17 +15,27 @@ const getUser = async (req: Request, res: Response) => {
 };
 
 const changeRole = async (req: Request, res: Response) => {
-  const data = await AdminService.changeRole(req.params.id as string, req.body.role, req.user!, req.ip);
+  const data = await AdminService.changeRole(
+    req.params.id as string,
+    req.body.role,
+    requireUser(req),
+    req.ip,
+  );
   sendResponse(res, { message: `User role changed to ${data.role}`, data });
 };
 
 const changeStatus = async (req: Request, res: Response) => {
-  const data = await AdminService.changeStatus(req.params.id as string, req.body.status, req.user!, req.ip);
+  const data = await AdminService.changeStatus(
+    req.params.id as string,
+    req.body.status,
+    requireUser(req),
+    req.ip,
+  );
   sendResponse(res, { message: `User is now ${data.status}`, data });
 };
 
 const deleteUser = async (req: Request, res: Response) => {
-  await AdminService.deleteUser(req.params.id as string, req.user!, req.ip);
+  await AdminService.deleteUser(req.params.id as string, requireUser(req), req.ip);
   sendResponse(res, { message: "User deleted (soft delete)" });
 };
 

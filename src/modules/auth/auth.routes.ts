@@ -32,10 +32,19 @@ router.post(
 router.post("/logout", validateRequest(refreshTokenSchema), AuthController.logout);
 
 // Google (GCP) social login — ID-token flow (SPA / mobile / Postman)
-router.post("/google", authLimiter, validateRequest(googleIdTokenSchema), AuthController.googleIdTokenLogin);
+router.post(
+  "/google",
+  authLimiter,
+  validateRequest(googleIdTokenSchema),
+  AuthController.googleIdTokenLogin,
+);
 // Google (GCP) social login — server-side OAuth redirect flow
 router.get("/google", AuthController.googleRedirect);
-router.get("/google/callback", validateRequest(googleCallbackSchema), AuthController.googleCallback);
+router.get(
+  "/google/callback",
+  validateRequest(googleCallbackSchema),
+  AuthController.googleCallback,
+);
 
 router.patch(
   "/change-password",

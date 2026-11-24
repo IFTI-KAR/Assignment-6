@@ -54,9 +54,10 @@ export const findNearestAvailable = async (
   });
 
   return ambulances
-    .map((a) => {
-      const distanceKm = roadDistanceKm(origin, { lat: a.currentLat!, lng: a.currentLng! });
-      return { ...a, distanceKm, etaMinutes: etaMinutes(distanceKm) };
+    .flatMap((a) => {
+      if (a.currentLat === null || a.currentLng === null) return [];
+      const distanceKm = roadDistanceKm(origin, { lat: a.currentLat, lng: a.currentLng });
+      return [{ ...a, distanceKm, etaMinutes: etaMinutes(distanceKm) }];
     })
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, limit);
@@ -127,7 +128,11 @@ const getById = async (id: string, requester: { id: string; role: Role }) => {
 
 const update = async (id: string, input: UpdateAmbulanceInput, actor: Actor) => {
   await findActiveOrThrow(id);
-  const ambulance = await prisma.ambulance.update({ where: { id }, data: input, include: ambulanceInclude });
+  const ambulance = await prisma.ambulance.update({
+    where: { id },
+    data: input,
+    include: ambulanceInclude,
+  });
   await logAudit({
     ...actor,
     action: AuditAction.AMBULANCE_UPDATED,
@@ -150,7 +155,10 @@ const assignDriver = async (id: string, driverProfileId: string | null, actor: A
     if (driverProfileId === null) {
       const updated = await tx.ambulance.update({
         where: { id },
-        data: { driverId: null, status: ambulance.status === "MAINTENANCE" ? "MAINTENANCE" : "OFFLINE" },
+        data: {
+          driverId: null,
+          status: ambulance.status === "MAINTENANCE" ? "MAINTENANCE" : "OFFLINE",
+        },
         include: ambulanceInclude,
       });
       await logAudit(
@@ -183,12 +191,19 @@ const assignDriver = async (id: string, driverProfileId: string | null, actor: A
       // Detach the driver from their previous ambulance.
       await tx.ambulance.update({
         where: { id: driver.ambulance.id },
-        data: { driverId: null, status: driver.ambulance.status === "MAINTENANCE" ? "MAINTENANCE" : "OFFLINE" },
+        data: {
+          driverId: null,
+          status: driver.ambulance.status === "MAINTENANCE" ? "MAINTENANCE" : "OFFLINE",
+        },
       });
     }
 
     const nextStatus =
-      ambulance.status === "MAINTENANCE" ? "MAINTENANCE" : driver.isOnDuty ? "AVAILABLE" : "OFFLINE";
+      ambulance.status === "MAINTENANCE"
+        ? "MAINTENANCE"
+        : driver.isOnDuty
+          ? "AVAILABLE"
+          : "OFFLINE";
 
     const updated = await tx.ambulance.update({
       where: { id },
@@ -210,7 +225,11 @@ const assignDriver = async (id: string, driverProfileId: string | null, actor: A
   });
 };
 
-const updateStatus = async (id: string, status: "AVAILABLE" | "MAINTENANCE" | "OFFLINE", actor: Actor) => {
+const updateStatus = async (
+  id: string,
+  status: "AVAILABLE" | "MAINTENANCE" | "OFFLINE",
+  actor: Actor,
+) => {
   const ambulance = await prisma.ambulance.findFirst({
     where: { id, deletedAt: null },
     include: { driver: true },
@@ -218,7 +237,8 @@ const updateStatus = async (id: string, status: "AVAILABLE" | "MAINTENANCE" | "O
   if (!ambulance) throw new AppError(404, "Ambulance not found");
 
   if (status === "AVAILABLE") {
-    if (!ambulance.driver) throw new AppError(400, "Assign a driver before marking the ambulance available");
+    if (!ambulance.driver)
+      throw new AppError(400, "Assign a driver before marking the ambulance available");
     if (!ambulance.driver.isVerified || !ambulance.driver.isOnDuty) {
       throw new AppError(400, "The assigned driver must be verified and on duty");
     }
@@ -229,7 +249,8 @@ const updateStatus = async (id: string, status: "AVAILABLE" | "MAINTENANCE" | "O
     where: { id, status: { not: "DISPATCHED" } },
     data: { status },
   });
-  if (count === 0) throw new AppError(409, "Ambulance is on an active trip; status cannot be changed now");
+  if (count === 0)
+    throw new AppError(409, "Ambulance is on an active trip; status cannot be changed now");
 
   await logAudit({
     ...actor,
@@ -248,7 +269,12 @@ const softDelete = async (id: string, actor: Actor) => {
     data: { deletedAt: new Date(), driverId: null, status: "OFFLINE" },
   });
   if (count === 0) throw new AppError(409, "Cannot delete an ambulance that is on an active trip");
-  await logAudit({ ...actor, action: AuditAction.AMBULANCE_DELETED, entity: "Ambulance", entityId: id });
+  await logAudit({
+    ...actor,
+    action: AuditAction.AMBULANCE_DELETED,
+    entity: "Ambulance",
+    entityId: id,
+  });
 };
 
 export const AmbulanceService = {

@@ -149,8 +149,18 @@ const create = async (patientId: string, input: CreateEmergencyInput, meta: ReqM
 
 /** Role-scoped listing with pagination, filters, date range, search and sorting. */
 const list = async (user: Requester, query: ListEmergenciesQuery) => {
-  const { page, limit, searchTerm, status, priority, emergencyType, fromDate, toDate, sortBy, sortOrder } =
-    query;
+  const {
+    page,
+    limit,
+    searchTerm,
+    status,
+    priority,
+    emergencyType,
+    fromDate,
+    toDate,
+    sortBy,
+    sortOrder,
+  } = query;
 
   const where: Prisma.EmergencyRequestWhereInput = {
     deletedAt: null,
@@ -214,7 +224,11 @@ const myActive = async (user: Requester) => {
 
   let ambulanceEta: { distanceKm: number; etaMinutes: number } | null = null;
   const amb = emergency.ambulance;
-  if (amb?.currentLat != null && amb.currentLng != null && ["DISPATCHED", "EN_ROUTE"].includes(emergency.status)) {
+  if (
+    amb?.currentLat != null &&
+    amb.currentLng != null &&
+    ["DISPATCHED", "EN_ROUTE"].includes(emergency.status)
+  ) {
     const distanceKm = roadDistanceKm(
       { lat: amb.currentLat, lng: amb.currentLng },
       { lat: emergency.pickupLat, lng: emergency.pickupLng },
@@ -261,7 +275,9 @@ const track = async (trackingCode: string) => {
       atHospitalAt: true,
       completedAt: true,
       cancelledAt: true,
-      ambulance: { select: { registrationNo: true, type: true, currentLat: true, currentLng: true } },
+      ambulance: {
+        select: { registrationNo: true, type: true, currentLat: true, currentLng: true },
+      },
       driver: { select: { name: true, phone: true } },
       hospital: { select: { name: true, address: true, phone: true } },
       statusLogs: { orderBy: { createdAt: "asc" }, select: { toStatus: true, createdAt: true } },
@@ -270,7 +286,11 @@ const track = async (trackingCode: string) => {
   if (!e) throw new AppError(404, "No emergency found for this tracking code");
 
   let eta: number | null = null;
-  if (e.ambulance?.currentLat != null && e.ambulance.currentLng != null && ["DISPATCHED", "EN_ROUTE"].includes(e.status)) {
+  if (
+    e.ambulance?.currentLat != null &&
+    e.ambulance.currentLng != null &&
+    ["DISPATCHED", "EN_ROUTE"].includes(e.status)
+  ) {
     eta = etaMinutes(
       roadDistanceKm(
         { lat: e.ambulance.currentLat, lng: e.ambulance.currentLng },
@@ -288,7 +308,12 @@ const track = async (trackingCode: string) => {
 };
 
 /** Dispatcher re-triage (e.g. after a call-back). Keeps queue ordering consistent via score floor. */
-const overridePriority = async (id: string, input: OverridePriorityInput, admin: Requester, meta: ReqMeta) => {
+const overridePriority = async (
+  id: string,
+  input: OverridePriorityInput,
+  admin: Requester,
+  meta: ReqMeta,
+) => {
   const emergency = await findOrThrow(id);
   if (!ACTIVE_EMERGENCY_STATUSES.includes(emergency.status)) {
     throw new AppError(400, `Cannot change priority of a ${emergency.status} emergency`);
@@ -407,7 +432,10 @@ const cancel = async (id: string, reason: string, user: Requester, meta: ReqMeta
       },
       tx,
     );
-    return tx.emergencyRequest.findUniqueOrThrow({ where: { id }, include: emergencyDetailInclude });
+    return tx.emergencyRequest.findUniqueOrThrow({
+      where: { id },
+      include: emergencyDetailInclude,
+    });
   });
 
   if (emergency.hospitalId) await cache.invalidate(CacheKeys.hospitals);

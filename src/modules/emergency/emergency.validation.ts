@@ -31,7 +31,9 @@ const idParam = z.object({ id: z.uuid("Invalid emergency id") });
 
 export const createEmergencySchema = z.object({
   body: z.object({
-    emergencyType: z.enum(emergencyTypes, { error: `emergencyType must be one of ${emergencyTypes.join(", ")}` }),
+    emergencyType: z.enum(emergencyTypes, {
+      error: `emergencyType must be one of ${emergencyTypes.join(", ")}`,
+    }),
     patientName: z.string().trim().min(2).max(80).optional(),
     patientPhone: bdPhone.optional(),
     patientAge: z.coerce.number().int().min(0).max(130).optional(),
@@ -114,7 +116,11 @@ export const overridePrioritySchema = z.object({
 export const cancelSchema = z.object({
   params: idParam,
   body: z.object({
-    reason: z.string().trim().min(5, "Please give a cancellation reason (min 5 characters)").max(500),
+    reason: z
+      .string()
+      .trim()
+      .min(5, "Please give a cancellation reason (min 5 characters)")
+      .max(500),
   }),
 });
 

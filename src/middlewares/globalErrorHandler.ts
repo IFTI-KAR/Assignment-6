@@ -25,7 +25,9 @@ const handlePrismaKnownError = (err: Prisma.PrismaClientKnownRequestError): Norm
       return {
         statusCode: 400,
         message: "Invalid reference: related record does not exist",
-        errors: [{ path: String(err.meta?.field_name ?? ""), message: "Foreign key constraint failed" }],
+        errors: [
+          { path: String(err.meta?.field_name ?? ""), message: "Foreign key constraint failed" },
+        ],
       };
     case "P2034":
       return {
@@ -86,6 +88,8 @@ export const globalErrorHandler: ErrorRequestHandler = (err, _req, res, _next) =
     success: false,
     message,
     errors,
-    ...(!config.isProduction && statusCode >= 500 && err instanceof Error ? { stack: err.stack } : {}),
+    ...(!config.isProduction && statusCode >= 500 && err instanceof Error
+      ? { stack: err.stack }
+      : {}),
   });
 };

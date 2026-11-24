@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { requireUser } from "../../middlewares/auth";
 import { auditContext } from "../../utils/audit";
 import { sendResponse } from "../../utils/sendResponse";
 import { DriverService } from "./driver.service";
@@ -15,22 +16,32 @@ const getById = async (req: Request, res: Response) => {
 };
 
 const verify = async (req: Request, res: Response) => {
-  const data = await DriverService.verify(req.params.id as string, req.body.isVerified, auditContext(req));
-  sendResponse(res, { message: data.isVerified ? "Driver verified" : "Driver verification revoked", data });
+  const data = await DriverService.verify(
+    req.params.id as string,
+    req.body.isVerified,
+    auditContext(req),
+  );
+  sendResponse(res, {
+    message: data.isVerified ? "Driver verified" : "Driver verification revoked",
+    data,
+  });
 };
 
 const updateDuty = async (req: Request, res: Response) => {
-  const data = await DriverService.updateDuty(req.user!.id, req.body, req.ip);
-  sendResponse(res, { message: data.isOnDuty ? "You are now ON duty" : "You are now OFF duty", data });
+  const data = await DriverService.updateDuty(requireUser(req).id, req.body, req.ip);
+  sendResponse(res, {
+    message: data.isOnDuty ? "You are now ON duty" : "You are now OFF duty",
+    data,
+  });
 };
 
 const updateLocation = async (req: Request, res: Response) => {
-  const data = await DriverService.updateLocation(req.user!.id, req.body);
+  const data = await DriverService.updateLocation(requireUser(req).id, req.body);
   sendResponse(res, { message: "Location updated", data });
 };
 
 const mySummary = async (req: Request, res: Response) => {
-  const data = await DriverService.mySummary(req.user!.id);
+  const data = await DriverService.mySummary(requireUser(req).id);
   sendResponse(res, { message: "Driver summary retrieved successfully", data });
 };
 

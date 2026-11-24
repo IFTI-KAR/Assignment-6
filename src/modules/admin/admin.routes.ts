@@ -19,7 +19,11 @@ router.use(auth("ADMIN"));
 router.get("/users", validateRequest(listUsersSchema), AdminController.listUsers);
 router.get("/users/:id", validateRequest(userIdSchema), AdminController.getUser);
 router.patch("/users/:id/role", validateRequest(changeRoleSchema), AdminController.changeRole);
-router.patch("/users/:id/status", validateRequest(changeStatusSchema), AdminController.changeStatus);
+router.patch(
+  "/users/:id/status",
+  validateRequest(changeStatusSchema),
+  AdminController.changeStatus,
+);
 router.delete("/users/:id", validateRequest(userIdSchema), AdminController.deleteUser);
 
 router.get("/dashboard-stats", AdminController.dashboardStats);

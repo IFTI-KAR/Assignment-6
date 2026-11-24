@@ -35,12 +35,32 @@ router.get("/", auth(), validateRequest(listEmergenciesSchema), EmergencyControl
 
 // --- Single resource ---
 router.get("/:id", auth(), validateRequest(emergencyIdSchema), EmergencyController.getById);
-router.get("/:id/timeline", auth(), validateRequest(emergencyIdSchema), EmergencyController.timeline);
-router.delete("/:id", auth("ADMIN"), validateRequest(emergencyIdSchema), EmergencyController.softDelete);
+router.get(
+  "/:id/timeline",
+  auth(),
+  validateRequest(emergencyIdSchema),
+  EmergencyController.timeline,
+);
+router.delete(
+  "/:id",
+  auth("ADMIN"),
+  validateRequest(emergencyIdSchema),
+  EmergencyController.softDelete,
+);
 
 // --- Workflow / business operations ---
-router.post("/:id/dispatch", auth("ADMIN"), validateRequest(dispatchSchema), EmergencyController.dispatch);
-router.patch("/:id/status", auth("DRIVER"), validateRequest(updateStatusSchema), EmergencyController.updateStatus);
+router.post(
+  "/:id/dispatch",
+  auth("ADMIN"),
+  validateRequest(dispatchSchema),
+  EmergencyController.dispatch,
+);
+router.patch(
+  "/:id/status",
+  auth("DRIVER"),
+  validateRequest(updateStatusSchema),
+  EmergencyController.updateStatus,
+);
 router.patch(
   "/:id/hospital",
   auth("DRIVER", "ADMIN"),
@@ -53,6 +73,11 @@ router.patch(
   validateRequest(overridePrioritySchema),
   EmergencyController.overridePriority,
 );
-router.post("/:id/cancel", auth("PATIENT", "ADMIN"), validateRequest(cancelSchema), EmergencyController.cancel);
+router.post(
+  "/:id/cancel",
+  auth("PATIENT", "ADMIN"),
+  validateRequest(cancelSchema),
+  EmergencyController.cancel,
+);
 
 export const EmergencyRoutes = router;

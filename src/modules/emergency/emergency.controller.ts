@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { requireUser } from "../../middlewares/auth";
 import { sendResponse } from "../../utils/sendResponse";
 import { DispatchService } from "./dispatch.service";
 import { EmergencyService } from "./emergency.service";
@@ -8,7 +9,7 @@ const meta = (req: Request) => ({ ip: req.ip });
 const id = (req: Request) => req.params.id as string;
 
 const create = async (req: Request, res: Response) => {
-  const data = await EmergencyService.create(req.user!.id, req.body, meta(req));
+  const data = await EmergencyService.create(requireUser(req).id, req.body, meta(req));
   sendResponse(res, {
     statusCode: 201,
     message: `Emergency received (${data.priority}). Help is being arranged — tracking code ${data.trackingCode}`,
@@ -17,7 +18,10 @@ const create = async (req: Request, res: Response) => {
 };
 
 const list = async (req: Request, res: Response) => {
-  const result = await EmergencyService.list(req.user!, req.query as unknown as ListEmergenciesQuery);
+  const result = await EmergencyService.list(
+    requireUser(req),
+    req.query as unknown as ListEmergenciesQuery,
+  );
   sendResponse(res, { message: "Emergencies retrieved successfully", ...result });
 };
 
@@ -27,17 +31,20 @@ const queue = async (_req: Request, res: Response) => {
 };
 
 const myActive = async (req: Request, res: Response) => {
-  const data = await EmergencyService.myActive(req.user!);
-  sendResponse(res, { message: data ? "Active emergency retrieved" : "You have no active emergency", data });
+  const data = await EmergencyService.myActive(requireUser(req));
+  sendResponse(res, {
+    message: data ? "Active emergency retrieved" : "You have no active emergency",
+    data,
+  });
 };
 
 const getById = async (req: Request, res: Response) => {
-  const data = await EmergencyService.getById(id(req), req.user!);
+  const data = await EmergencyService.getById(id(req), requireUser(req));
   sendResponse(res, { message: "Emergency retrieved successfully", data });
 };
 
 const timeline = async (req: Request, res: Response) => {
-  const data = await EmergencyService.timeline(id(req), req.user!);
+  const data = await EmergencyService.timeline(id(req), requireUser(req));
   sendResponse(res, { message: "Incident timeline retrieved successfully", data });
 };
 
@@ -47,12 +54,17 @@ const track = async (req: Request, res: Response) => {
 };
 
 const dispatch = async (req: Request, res: Response) => {
-  const data = await DispatchService.dispatch(id(req), req.body?.ambulanceId, req.user!, meta(req));
+  const data = await DispatchService.dispatch(
+    id(req),
+    req.body?.ambulanceId,
+    requireUser(req),
+    meta(req),
+  );
   sendResponse(res, { message: `Ambulance ${data.dispatch.registrationNo} dispatched`, data });
 };
 
 const dispatchNext = async (req: Request, res: Response) => {
-  const data = await DispatchService.dispatchNext(req.user!, meta(req));
+  const data = await DispatchService.dispatchNext(requireUser(req), meta(req));
   sendResponse(res, {
     message: `Highest-priority request ${data.emergency.trackingCode} dispatched to ${data.dispatch.registrationNo}`,
     data,
@@ -60,27 +72,37 @@ const dispatchNext = async (req: Request, res: Response) => {
 };
 
 const updateStatus = async (req: Request, res: Response) => {
-  const data = await DispatchService.updateStatus(id(req), req.body, req.user!, meta(req));
+  const data = await DispatchService.updateStatus(id(req), req.body, requireUser(req), meta(req));
   sendResponse(res, { message: `Trip status updated to ${data.status}`, data });
 };
 
 const selectHospital = async (req: Request, res: Response) => {
-  const data = await DispatchService.selectHospital(id(req), req.body.hospitalId, req.user!, meta(req));
+  const data = await DispatchService.selectHospital(
+    id(req),
+    req.body.hospitalId,
+    requireUser(req),
+    meta(req),
+  );
   sendResponse(res, { message: `Destination hospital set to ${data.hospital?.name}`, data });
 };
 
 const overridePriority = async (req: Request, res: Response) => {
-  const data = await EmergencyService.overridePriority(id(req), req.body, req.user!, meta(req));
+  const data = await EmergencyService.overridePriority(
+    id(req),
+    req.body,
+    requireUser(req),
+    meta(req),
+  );
   sendResponse(res, { message: `Priority changed to ${data.priority}`, data });
 };
 
 const cancel = async (req: Request, res: Response) => {
-  const data = await EmergencyService.cancel(id(req), req.body.reason, req.user!, meta(req));
+  const data = await EmergencyService.cancel(id(req), req.body.reason, requireUser(req), meta(req));
   sendResponse(res, { message: "Emergency cancelled", data });
 };
 
 const softDelete = async (req: Request, res: Response) => {
-  await EmergencyService.softDelete(id(req), req.user!, meta(req));
+  await EmergencyService.softDelete(id(req), requireUser(req), meta(req));
   sendResponse(res, { message: "Emergency archived (soft deleted)" });
 };
 

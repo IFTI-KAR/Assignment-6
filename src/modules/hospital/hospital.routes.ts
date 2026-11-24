@@ -20,8 +20,23 @@ router.get("/:id", validateRequest(hospitalIdSchema), HospitalController.getById
 
 // Admin management
 router.post("/", auth("ADMIN"), validateRequest(createHospitalSchema), HospitalController.create);
-router.patch("/:id", auth("ADMIN"), validateRequest(updateHospitalSchema), HospitalController.update);
-router.patch("/:id/beds", auth("ADMIN"), validateRequest(updateBedsSchema), HospitalController.updateBeds);
-router.delete("/:id", auth("ADMIN"), validateRequest(hospitalIdSchema), HospitalController.softDelete);
+router.patch(
+  "/:id",
+  auth("ADMIN"),
+  validateRequest(updateHospitalSchema),
+  HospitalController.update,
+);
+router.patch(
+  "/:id/beds",
+  auth("ADMIN"),
+  validateRequest(updateBedsSchema),
+  HospitalController.updateBeds,
+);
+router.delete(
+  "/:id",
+  auth("ADMIN"),
+  validateRequest(hospitalIdSchema),
+  HospitalController.softDelete,
+);
 
 export const HospitalRoutes = router;

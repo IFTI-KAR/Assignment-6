@@ -14,7 +14,10 @@ const ambulanceBody = z.object({
     .toUpperCase()
     .min(4)
     .max(30)
-    .regex(/^[A-Z0-9\- ]+$/, "Registration number may contain only letters, digits, spaces and dashes"),
+    .regex(
+      /^[A-Z0-9\- ]+$/,
+      "Registration number may contain only letters, digits, spaces and dashes",
+    ),
   type: z.enum(ambulanceTypes).default("BASIC"),
   equipment: z.array(z.string().trim().min(2).max(60)).max(40).default([]),
   capacity: z.coerce.number().int().min(1).max(6).default(1),
@@ -46,7 +49,8 @@ export const updateAmbulanceStatusSchema = z.object({
   params: idParam,
   body: z.object({
     status: z.enum(["AVAILABLE", "MAINTENANCE", "OFFLINE"], {
-      error: "Status must be AVAILABLE, MAINTENANCE or OFFLINE (DISPATCHED is set by the dispatch flow)",
+      error:
+        "Status must be AVAILABLE, MAINTENANCE or OFFLINE (DISPATCHED is set by the dispatch flow)",
     }),
   }),
 });

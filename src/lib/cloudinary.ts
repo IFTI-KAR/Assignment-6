@@ -1,4 +1,4 @@
-import { type UploadApiResponse, v2 as cloudinary } from "cloudinary";
+import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { config } from "../config";
 import { AppError } from "../errors/AppError";
 

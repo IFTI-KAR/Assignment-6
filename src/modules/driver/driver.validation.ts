@@ -11,7 +11,9 @@ export const listDriversSchema = z.object({
     isVerified: booleanQuery.optional(),
     isOnDuty: booleanQuery.optional(),
     hasAmbulance: booleanQuery.optional(),
-    sortBy: z.enum(["createdAt", "totalTrips", "experienceYears", "licenseExpiry"]).default("createdAt"),
+    sortBy: z
+      .enum(["createdAt", "totalTrips", "experienceYears", "licenseExpiry"])
+      .default("createdAt"),
   }),
 });
 

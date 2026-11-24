@@ -14,7 +14,12 @@ const router = Router();
 
 // Driver self-service (must be declared before "/:id")
 router.get("/me/summary", auth("DRIVER"), DriverController.mySummary);
-router.patch("/me/duty", auth("DRIVER"), validateRequest(updateDutySchema), DriverController.updateDuty);
+router.patch(
+  "/me/duty",
+  auth("DRIVER"),
+  validateRequest(updateDutySchema),
+  DriverController.updateDuty,
+);
 router.patch(
   "/me/location",
   auth("DRIVER"),
@@ -25,6 +30,11 @@ router.patch(
 // Admin management
 router.get("/", auth("ADMIN"), validateRequest(listDriversSchema), DriverController.list);
 router.get("/:id", auth("ADMIN"), validateRequest(driverIdSchema), DriverController.getById);
-router.patch("/:id/verify", auth("ADMIN"), validateRequest(verifyDriverSchema), DriverController.verify);
+router.patch(
+  "/:id/verify",
+  auth("ADMIN"),
+  validateRequest(verifyDriverSchema),
+  DriverController.verify,
+);
 
 export const DriverRoutes = router;

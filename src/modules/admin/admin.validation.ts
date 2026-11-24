@@ -24,7 +24,9 @@ export const changeRoleSchema = z.object({
 
 export const changeStatusSchema = z.object({
   params: userIdParam,
-  body: z.object({ status: z.enum(["ACTIVE", "BLOCKED"], { error: "status must be ACTIVE or BLOCKED" }) }),
+  body: z.object({
+    status: z.enum(["ACTIVE", "BLOCKED"], { error: "status must be ACTIVE or BLOCKED" }),
+  }),
 });
 
 export const auditLogsSchema = z.object({
@@ -46,7 +48,10 @@ export const reportSchema = z.object({
       fromDate: z.coerce.date().default(() => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
       toDate: z.coerce.date().default(() => new Date()),
     })
-    .refine((q) => q.fromDate <= q.toDate, { message: "fromDate must be before toDate", path: ["fromDate"] }),
+    .refine((q) => q.fromDate <= q.toDate, {
+      message: "fromDate must be before toDate",
+      path: ["fromDate"],
+    }),
 });
 
 export type ListUsersQuery = z.infer<typeof listUsersSchema>["query"];

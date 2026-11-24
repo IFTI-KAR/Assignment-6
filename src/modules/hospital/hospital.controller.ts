@@ -30,7 +30,11 @@ const update = async (req: Request, res: Response) => {
 };
 
 const updateBeds = async (req: Request, res: Response) => {
-  const data = await HospitalService.updateBeds(req.params.id as string, req.body, auditContext(req));
+  const data = await HospitalService.updateBeds(
+    req.params.id as string,
+    req.body,
+    auditContext(req),
+  );
   sendResponse(res, { message: "Bed availability updated", data });
 };
 

@@ -1,6 +1,7 @@
 import type { CookieOptions, Request, Response } from "express";
 import { config } from "../../config";
 import { getGoogleAuthUrl } from "../../lib/google";
+import { requireUser } from "../../middlewares/auth";
 import { signOAuthState } from "../../utils/jwt";
 import { sendResponse } from "../../utils/sendResponse";
 import { AuthService } from "./auth.service";
@@ -27,7 +28,11 @@ const readRefreshToken = (req: Request): string | undefined =>
 const register = async (req: Request, res: Response) => {
   const result = await AuthService.register(req.body, meta(req));
   setRefreshCookie(res, result.refreshToken);
-  sendResponse(res, { statusCode: 201, message: "Patient account registered successfully", data: result });
+  sendResponse(res, {
+    statusCode: 201,
+    message: "Patient account registered successfully",
+    data: result,
+  });
 };
 
 const registerDriver = async (req: Request, res: Response) => {
@@ -35,7 +40,8 @@ const registerDriver = async (req: Request, res: Response) => {
   setRefreshCookie(res, result.refreshToken);
   sendResponse(res, {
     statusCode: 201,
-    message: "Driver account registered. An admin must verify your license before you can go on duty.",
+    message:
+      "Driver account registered. An admin must verify your license before you can go on duty.",
     data: result,
   });
 };
@@ -81,7 +87,7 @@ const logout = async (req: Request, res: Response) => {
 };
 
 const changePassword = async (req: Request, res: Response) => {
-  await AuthService.changePassword(req.user!.id, req.body, req.ip);
+  await AuthService.changePassword(requireUser(req).id, req.body, req.ip);
   res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions, maxAge: undefined });
   sendResponse(res, { message: "Password changed. Please log in again on your other devices." });
 };
