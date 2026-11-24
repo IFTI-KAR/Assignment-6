@@ -11,7 +11,7 @@ A production-ready, transaction-safe RESTful API for **Emergency Ambulance Dispa
 | Resource | Link |
 |---|---|
 | **Backend Repository** | https://github.com/IFTI-KAR/Assignment-6 |
-| **Live API Base URL** | *(Pending Vercel deployment — updated after deploy)* |
+| **Live API Base URL** | https://ambulance-dispatch-server.vercel.app |
 | **Postman Collection** | [`docs/ambulance-dispatch.postman_collection.json`](./docs/ambulance-dispatch.postman_collection.json) |
 | **Database Schema** | [`prisma/schema.prisma`](./prisma/schema.prisma) |
 
@@ -335,3 +335,16 @@ All module endpoints are prefixed with `/api/v1`.
    npx prisma migrate deploy
    npm run db:seed
    ```
+
+---
+
+## 📦 B7A6 Submission Summary
+
+```text
+Project Name    : Emergency Ambulance Dispatch
+Backend Repo    : https://github.com/IFTI-KAR/Assignment-6
+Live API        : https://ambulance-dispatch-server.vercel.app
+API Docs        : docs/ambulance-dispatch.postman_collection.json
+Admin Email     : admin@rescue.com
+Admin Password  : Admin@12345
+```
